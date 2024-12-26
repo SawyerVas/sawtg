@@ -31,19 +31,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Функция для команды /help
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     help_text = (
-        "Доступные команды:\n"
-        "/start - Запуск бота\n"
-        "/help - Помощь\n"
-        "/menu - Меню\n"
-        "/startgame - Начать игру\n"
-        "/stopgame - Остановить игру\n"
-        "/echo [текст] - Повторить сообщение\n"
+        "👋 Привет! Я ваш бот. Вот что я могу:\n\n"
+        "🔹 /start - Запуск бота\n"
+        "🔹 /help - Помощь (ты сейчас читаешь это)\n"
+        "🔹 /menu - Открывает главное меню с опциями\n\n"
+        
+        "🎮 Игры:\n"
+        "🔹 /startgame - Начать игру в угадывание числа (Я загадаю число от 1 до 100)\n"
+        "🔹 /stopgame - Остановить игру\n\n"
+        
+        "💬 Команды для общения:\n"
+        "🔹 /echo [текст] - Повторю твое сообщение\n\n"
+        
+        "⚙️ Дополнительные команды:\n"
+        "🔹 /info - Информация о боте\n\n"
+        
+        "Если ты не помнишь команду или что-то непонятно, просто напиши мне, и я постараюсь помочь!"
     )
+
+    # Проверим, есть ли активная игра
+    user_id = update.message.from_user.id
+    if user_id in game_data:
+        help_text += "\n\n❗ Ты уже начал игру! Введи число, чтобы продолжить угадывать."
+
     await update.message.reply_text(help_text)
 
 # Команда /menu
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [["О боте", "Контакты"], ["Помощь"]]
+    keyboard = [["Начать игру", "О боте", "Контакты"], ["Помощь"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Выберите опцию:", reply_markup=reply_markup)
 
@@ -114,6 +129,7 @@ def main():
     application.add_handler(CommandHandler("startgame", start_game))
     application.add_handler(CommandHandler("stopgame", stop_game))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess_number))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     application.add_error_handler(error_handler)
 
     # Запускаем бота
