@@ -22,7 +22,12 @@ game_data = {}
 
 # Функция для команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [["/startgame", "/menu"], ["/help", "/stopgame"]]
+    user_id = update.message.from_user.id
+    keyboard = (
+        [["/startgame", "/menu"], ["/help", "/stopgame"]]
+        if user_id in game_data
+        else [["/startgame", "/menu"], ["/help"]]
+    )
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
         "Привет! Я ваш бот. Чем могу помочь?", reply_markup=reply_markup
@@ -35,17 +40,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🔹 /start - Запуск бота\n"
         "🔹 /help - Помощь (ты сейчас читаешь это)\n"
         "🔹 /menu - Открывает главное меню с опциями\n\n"
-        
         "🎮 Игры:\n"
         "🔹 /startgame - Начать игру в угадывание числа (Я загадаю число от 1 до 100)\n"
         "🔹 /stopgame - Остановить игру\n\n"
-        
         "💬 Команды для общения:\n"
         "🔹 /echo [текст] - Повторю твое сообщение\n\n"
-        
         "⚙️ Дополнительные команды:\n"
         "🔹 /info - Информация о боте\n\n"
-        
         "Если ты не помнишь команду или что-то непонятно, просто напиши мне, и я постараюсь помочь!"
     )
 
@@ -58,13 +59,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # Команда /menu
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [["Начать игру", "О боте", "Контакты"], ["Помощь"]]
+    user_id = update.message.from_user.id
+    keyboard = (
+        [["О боте", "Контакты"], ["Помощь", "Остановить игру"]]
+        if user_id in game_data
+        else [["Начать игру", "О боте", "Контакты"], ["Помощь"]]
+    )
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Выберите опцию:", reply_markup=reply_markup)
 
 # Команда /startgame
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
+    if user_id in game_data:
+        await update.message.reply_text("Вы уже начали игру! Попробуйте угадать число.")
+        return
+
     number = random.randint(1, 100)
     game_data[user_id] = number
     await update.message.reply_text("Я загадал число от 1 до 100. Попробуйте угадать!")
