@@ -1,4 +1,4 @@
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -50,12 +50,37 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "Если ты не помнишь команду или что-то непонятно, просто напиши мне, и я постараюсь помочь!"
     )
 
-    # Проверим, есть ли активная игра
     user_id = update.message.from_user.id
     if user_id in game_data:
         help_text += "\n\n❗ Ты уже начал игру! Введи число, чтобы продолжить угадывать."
 
-    await update.message.reply_text(help_text)
+    # Добавляем интерактивное меню для помощи
+    keyboard = [
+        [InlineKeyboardButton("Как начать игру?", callback_data="help_startgame")],
+        [InlineKeyboardButton("Как остановить игру?", callback_data="help_stopgame")],
+        [InlineKeyboardButton("Общение с ботом", callback_data="help_communication")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(help_text, reply_markup=reply_markup)
+
+# Функция для обработки кнопок помощи
+async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "help_startgame":
+        await query.edit_message_text(
+            "Чтобы начать игру, введите /startgame. Бот загадает число, и вы должны его угадать!"
+        )
+    elif query.data == "help_stopgame":
+        await query.edit_message_text(
+            "Чтобы остановить текущую игру, введите /stopgame. Ваш прогресс будет сброшен."
+        )
+    elif query.data == "help_communication":
+        await query.edit_message_text(
+            "Вы можете общаться с ботом, отправляя текстовые сообщения или команды, такие как /echo [текст]."
+        )
 
 # Команда /menu
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -140,6 +165,7 @@ def main():
     application.add_handler(CommandHandler("stopgame", stop_game))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess_number))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(MessageHandler(filters.Regex("^/help"), help_callback))
     application.add_error_handler(error_handler)
 
     # Запускаем бота
