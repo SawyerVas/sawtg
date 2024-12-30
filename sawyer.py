@@ -1,4 +1,4 @@
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -8,6 +8,7 @@ from telegram.ext import (
 )
 import random
 import logging
+import csv
 
 # Логирование
 logging.basicConfig(
@@ -20,13 +21,42 @@ TOKEN = "7907843779:AAHweV-VrnluOt-rK-tDlM2EuFEo5oMyTBQ"
 # Хранилище для игры
 game_data = {}
 
+# Хранилище базы данных для проверки
+DATABASE = []
+
+# Загрузка базы данных из файла
+def load_database(file_path="database.csv"):
+    global DATABASE
+    try:
+        with open(file_path, mode="r", encoding="utf-8") as file:
+            reader = csv.reader(file)
+            DATABASE = [row for row in reader]
+        logging.info("База данных успешно загружена.")
+    except FileNotFoundError:
+        logging.error("Файл базы данных не найден.")
+
+# Проверка на совпадения
+async def check_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.message.text
+    if not DATABASE:
+        await update.message.reply_text("База данных пуста или не загружена.")
+        return
+
+    results = [row for row in DATABASE if query.lower() in row[0].lower()]
+    if results:
+        reply = "Найдено совпадение:\n" + "\n".join([", ".join(row) for row in results])
+    else:
+        reply = "Совпадений не найдено."
+
+    await update.message.reply_text(reply)
+
 # Функция для команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     keyboard = (
         [["/startgame", "/menu"], ["/help", "/stopgame"]]
         if user_id in game_data
-        else [["/startgame", "/menu"], ["/help"]]
+        else [["/startgame", "/menu"], ["/help", "Проверить базу"]]
     )
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
@@ -45,50 +75,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🔹 /stopgame - Остановить игру\n\n"
         "💬 Команды для общения:\n"
         "🔹 /echo [текст] - Повторю твое сообщение\n\n"
+        "🔎 Проверка базы данных:\n"
+        "🔹 Введите любой текст, чтобы проверить его в базе данных.\n"
         "⚙️ Дополнительные команды:\n"
         "🔹 /info - Информация о боте\n\n"
         "Если ты не помнишь команду или что-то непонятно, просто напиши мне, и я постараюсь помочь!"
     )
 
+    # Проверим, есть ли активная игра
     user_id = update.message.from_user.id
     if user_id in game_data:
         help_text += "\n\n❗ Ты уже начал игру! Введи число, чтобы продолжить угадывать."
 
-    # Добавляем интерактивное меню для помощи
-    keyboard = [
-        [InlineKeyboardButton("Как начать игру?", callback_data="help_startgame")],
-        [InlineKeyboardButton("Как остановить игру?", callback_data="help_stopgame")],
-        [InlineKeyboardButton("Общение с ботом", callback_data="help_communication")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(help_text, reply_markup=reply_markup)
-
-# Функция для обработки кнопок помощи
-async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "help_startgame":
-        await query.edit_message_text(
-            "Чтобы начать игру, введите /startgame. Бот загадает число, и вы должны его угадать!"
-        )
-    elif query.data == "help_stopgame":
-        await query.edit_message_text(
-            "Чтобы остановить текущую игру, введите /stopgame. Ваш прогресс будет сброшен."
-        )
-    elif query.data == "help_communication":
-        await query.edit_message_text(
-            "Вы можете общаться с ботом, отправляя текстовые сообщения или команды, такие как /echo [текст]."
-        )
+    await update.message.reply_text(help_text)
 
 # Команда /menu
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     keyboard = (
-        [["О боте", "Контакты"], ["Помощь", "Остановить игру"]]
+        [["О боте", "Контакты"], ["Помощь", "Проверить базу"]]
         if user_id in game_data
-        else [["Начать игру", "О боте", "Контакты"], ["Помощь"]]
+        else [["Начать игру", "О боте", "Контакты"], ["Помощь", "Проверить базу"]]
     )
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Выберите опцию:", reply_markup=reply_markup)
@@ -143,8 +150,10 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Я простой бот, созданный для демонстрации.")
     elif update.message.text.lower() == "помощь":
         await help_command(update, context)
+    elif update.message.text.lower() == "проверить базу":
+        await update.message.reply_text("Введите текст для проверки в базе данных.")
     else:
-        await update.message.reply_text(f"Вы сказали: {update.message.text}")
+        await check_database(update, context)
 
 # Функция для обработки ошибок
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -154,6 +163,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 # Основная функция
 def main():
+    # Загрузка базы данных
+    load_database()
+
     # Создаем приложение
     application = Application.builder().token(TOKEN).build()
 
@@ -165,7 +177,6 @@ def main():
     application.add_handler(CommandHandler("stopgame", stop_game))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess_number))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-    application.add_handler(MessageHandler(filters.Regex("^/help"), help_callback))
     application.add_error_handler(error_handler)
 
     # Запускаем бота
