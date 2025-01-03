@@ -22,8 +22,11 @@ TOKEN = "7907843779:AAHweV-VrnluOt-rK-tDlM2EuFEo5oMyTBQ"
 game_data = {}
 database = []
 
+# Путь к файлу базы данных
+DATABASE_FILE = "database.csv"
+
 # Функция загрузки базы данных
-def load_database(file_path="database.csv"):
+def load_database(file_path=DATABASE_FILE):
     global database
     try:
         with open(file_path, mode="r", encoding="utf-8") as file:
@@ -36,6 +39,17 @@ def load_database(file_path="database.csv"):
     except Exception as e:
         logging.error(f"Ошибка при загрузке базы данных: {e}")
         database = []
+
+# Функция сохранения базы данных
+def save_database(file_path=DATABASE_FILE):
+    global database
+    try:
+        with open(file_path, mode="w", encoding="utf-8", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(database)
+        logging.info("База данных успешно сохранена.")
+    except Exception as e:
+        logging.error(f"Ошибка при сохранении базы данных: {e}")
 
 # Функция для команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,7 +138,8 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Команда /reload_database
 async def reload_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     load_database()
-    await update.message.reply_text("База данных перезагружена.")
+    save_database()
+    await update.message.reply_text("База данных перезагружена и сохранена.")
 
 # Обработка попыток
 async def guess_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -183,12 +198,4 @@ def main():
     application.add_handler(CommandHandler("stopgame", stop_game))
     application.add_handler(CommandHandler("check", check))
     application.add_handler(CommandHandler("reload_database", reload_database))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess_number))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-    application.add_error_handler(error_handler)
-
-    # Запускаем бота
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess
