@@ -22,11 +22,11 @@ TOKEN = "7907843779:AAHweV-VrnluOt-rK-tDlM2EuFEo5oMyTBQ"
 game_data = {}
 database = []
 
-# Путь к файлу базы данных
-DATABASE_FILE = "database.csv"
+# Список администраторов
+ADMINS = [123456789, 987654321]  # Замените на реальные ID администраторов
 
 # Функция загрузки базы данных
-def load_database(file_path=DATABASE_FILE):
+def load_database(file_path="database.csv"):
     global database
     try:
         with open(file_path, mode="r", encoding="utf-8") as file:
@@ -40,16 +40,16 @@ def load_database(file_path=DATABASE_FILE):
         logging.error(f"Ошибка при загрузке базы данных: {e}")
         database = []
 
-# Функция сохранения базы данных
-def save_database(file_path=DATABASE_FILE):
-    global database
-    try:
-        with open(file_path, mode="w", encoding="utf-8", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerows(database)
-        logging.info("База данных успешно сохранена.")
-    except Exception as e:
-        logging.error(f"Ошибка при сохранении базы данных: {e}")
+# Декоратор для проверки прав администратора
+def admin_only(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.message.from_user.id
+        if user_id not in ADMINS:
+            await update.message.reply_text("❌ У вас нет прав для выполнения этой команды.")
+            return
+        return await func(update, context, *args, **kwargs)
+
+    return wrapper
 
 # Функция для команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -136,10 +136,10 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(response)
 
 # Команда /reload_database
+@admin_only
 async def reload_database(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     load_database()
-    save_database()
-    await update.message.reply_text("База данных перезагружена и сохранена.")
+    await update.message.reply_text("База данных перезагружена.")
 
 # Обработка попыток
 async def guess_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -198,4 +198,12 @@ def main():
     application.add_handler(CommandHandler("stopgame", stop_game))
     application.add_handler(CommandHandler("check", check))
     application.add_handler(CommandHandler("reload_database", reload_database))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, guess_number))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_error_handler(error_handler)
+
+    # Запускаем бота
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
